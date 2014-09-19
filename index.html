@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Practical-ml : Practical Machine Learning on Coursera">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Practical-ml</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/cris1403/Practical-ML">View on GitHub</a>
+
+          <h1 id="project_title">Practical-ml</h1>
+          <h2 id="project_tagline">Practical Machine Learning on Coursera</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/cris1403/Practical-ML/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/cris1403/Practical-ML/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="weight-lifting-exercises" class="anchor" href="#weight-lifting-exercises"><span class="octicon octicon-link"></span></a>Weight Lifting Exercises</h1>
+
+<h2>
+<a name="human-activity-recognition" class="anchor" href="#human-activity-recognition"><span class="octicon octicon-link"></span></a>Human Activity Recognition</h2>
+
+<p>Human Activity Recognition has become a challenging application which involves
+the use of different technologies to automatically collect and classify human activities for
+different application domains, ranging from medical applications, home monitoring and assisted living.</p>
+
+<p>In this task, six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. 
+Our aim is to predict how well an activity was performed by a participant.
+(Read more: <a href="http://groupware.les.inf.purio.br/har#weight_lifting_exercises#ixzz3Deo2ygkn">http://groupware.les.inf.purio.br/har#weight_lifting_exercises#ixzz3Deo2ygkn</a>)</p>
+
+<p>Let's download the train dataset and the test dataset from the web.</p>
+
+<div class="highlight highlight-r"><pre><span class="kn">require</span><span class="p">(</span>caret<span class="p">)</span>
+<span class="kn">require</span><span class="p">(</span>gbm<span class="p">)</span>
+<span class="kn">require</span><span class="p">(</span>pROC<span class="p">)</span>
+<span class="kn">require</span><span class="p">(</span>randomForest<span class="p">)</span>
+
+train <span class="o">=</span> read.csv<span class="p">(</span><span class="s">"C:/Users/Cris/Desktop/MOOC/Practical Machine Learning/Project/data/pml-training.csv"</span><span class="p">,</span> sep<span class="o">=</span><span class="s">","</span><span class="p">)</span>
+test <span class="o">=</span> read.csv<span class="p">(</span><span class="s">"C:/Users/Cris/Desktop/MOOC/Practical Machine Learning/Project/data/pml-testing.csv"</span><span class="p">,</span> sep<span class="o">=</span><span class="s">","</span><span class="p">)</span>
+
+<span class="kp">dim</span><span class="p">(</span>train<span class="p">)</span>
+<span class="kp">dim</span><span class="p">(</span>test<span class="p">)</span>
+</pre></div>
+
+<h2>
+<a name="feature-selection" class="anchor" href="#feature-selection"><span class="octicon octicon-link"></span></a>Feature selection</h2>
+
+<p>Our train dataset has 19,622 observations and 160 variables. Having examined summary tables, we decide to delete some useless variables with spare distributions (reporting statistics as min, max, kurtosis, skewness). We also use unsupervised filters to remove predictors with high inter-predictor correlations which wouldn't give us additional information about the classe/target variable.</p>
+
+<div class="highlight highlight-r"><pre>training <span class="o">=</span> train<span class="p">[,</span><span class="kt">c</span><span class="p">(</span><span class="m">8</span><span class="o">:</span><span class="m">11</span><span class="p">,</span><span class="m">37</span><span class="o">:</span><span class="m">49</span><span class="p">,</span><span class="m">60</span><span class="o">:</span><span class="m">68</span><span class="p">,</span><span class="m">84</span><span class="o">:</span><span class="m">86</span><span class="p">,</span><span class="m">102</span><span class="p">,</span><span class="m">113</span><span class="o">:</span><span class="m">124</span><span class="p">,</span><span class="m">140</span><span class="p">,</span><span class="m">151</span><span class="o">:</span><span class="m">160</span><span class="p">)]</span>
+testing <span class="o">=</span> test<span class="p">[,</span><span class="kt">c</span><span class="p">(</span><span class="m">8</span><span class="o">:</span><span class="m">11</span><span class="p">,</span><span class="m">37</span><span class="o">:</span><span class="m">49</span><span class="p">,</span><span class="m">60</span><span class="o">:</span><span class="m">68</span><span class="p">,</span><span class="m">84</span><span class="o">:</span><span class="m">86</span><span class="p">,</span><span class="m">102</span><span class="p">,</span><span class="m">113</span><span class="o">:</span><span class="m">124</span><span class="p">,</span><span class="m">140</span><span class="p">,</span><span class="m">151</span><span class="o">:</span><span class="m">159</span><span class="p">)]</span> <span class="c1">#160 is not classe</span>
+
+correlations  <span class="o">=</span> cor<span class="p">(</span>training<span class="p">[,</span><span class="m">-53</span><span class="p">])</span>
+highlyCorrelated <span class="o">=</span> findCorrelation<span class="p">(</span>correlations<span class="p">,</span> cutoff <span class="o">=</span> <span class="m">.85</span><span class="p">)</span>
+
+train.set <span class="o">=</span> training<span class="p">[,</span><span class="o">-</span>highlyCorrelated<span class="p">]</span>
+test.set  <span class="o">=</span> testing<span class="p">[,</span><span class="o">-</span>highlyCorrelated<span class="p">]</span>
+</pre></div>
+
+<h2>
+<a name="model" class="anchor" href="#model"><span class="octicon octicon-link"></span></a>Model</h2>
+
+<p>The learning model is random forests, an algorithm that build lots of bushy trees, and then average them to reduce the variance. We also have tried Gradient Boosting Machine, which gave amazing performance on this dataset as well. Boosting builds lots of smaller trees. Unlike random forests, each new tree in boosting tries to patch up the deficiencies of the current ensemble.</p>
+
+<h2>
+<a name="model-training" class="anchor" href="#model-training"><span class="octicon octicon-link"></span></a>Model Training</h2>
+
+<h2>
+<a name="parameter-tuning" class="anchor" href="#parameter-tuning"><span class="octicon octicon-link"></span></a>Parameter Tuning</h2>
+
+<p>Random forest has only one tuning parameter, 'mtry', which controls the number of features selected for each tree. In order to prevent overfitting, two separate 10-fold cross-validation are used as the resampling scheme to choose the best parameter.
+For each iteration, the strategy is to hold out a cross-validation dataset. Then, for each "mtry" value, the algorithm fits the model on 9-fold dataset and predict the classe variable on the hold-out dataset. </p>
+
+<div class="highlight highlight-r"><pre>fitControl <span class="o">=</span> trainControl<span class="p">(</span>method<span class="o">=</span><span class="s">'repeatedcv'</span><span class="p">,</span> number<span class="o">=</span><span class="m">10</span><span class="p">,</span>
+                          repeats<span class="o">=</span><span class="m">2</span><span class="p">,</span> returnResamp<span class="o">=</span><span class="s">'all'</span><span class="p">)</span>
+rfGrid   <span class="o">=</span> <span class="kp">expand.grid</span><span class="p">(</span><span class="m">.</span>mtry<span class="o">=</span><span class="kt">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="m">5</span><span class="p">,</span><span class="m">8</span><span class="p">))</span>
+rf.tune <span class="o">=</span> train<span class="p">(</span>x<span class="o">=</span>train.set<span class="p">[,</span><span class="m">1</span><span class="o">:</span><span class="m">44</span><span class="p">],</span> 
+                y<span class="o">=</span>train.set<span class="p">[,</span><span class="m">45</span><span class="p">],</span> 
+                method<span class="o">=</span><span class="s">'rf'</span><span class="p">,</span> 
+                trControl<span class="o">=</span>fitControl<span class="p">,</span>
+                tuneGrid<span class="o">=</span>rfGrid<span class="p">)</span>
+rf.tune
+</pre></div>
+
+<div class="highlight highlight-r"><pre>plot<span class="p">(</span>rf.tune<span class="p">)</span>
+</pre></div>
+
+<p>In the model output, there's a row for each mtry values. The "Accuracy" column is the average accuracy of the held-out samples. The optimal model is the one with the highest Accuracy.
+The best model is the one with <code>mtry=8</code>. Since $p=44$ here, we could have tried all 44 possible values of <code>mtry</code>. Caret records the results and picks the best model which doesn't look very complex. Then we think it won't overfit future data. In other words, it'll generalize well.</p>
+
+<h2>
+<a name="prediction-of-new-samples" class="anchor" href="#prediction-of-new-samples"><span class="octicon octicon-link"></span></a>Prediction of new samples</h2>
+
+<p>We apply the optimal model to new cases, to predict if the participant is doing the exercise well or not.
+As we know that $error=1-accuracy$, we already know the cross-validation set error, which is an optimistic estimate of the out of sample dataset (new cases). In this task, the model gives an extremely high accuracy, then we know the model is going to make very good predictions.</p>
+
+<div class="highlight highlight-r"><pre>test.pred <span class="o">=</span> predict<span class="p">(</span>rf.tune<span class="p">,</span> newdata<span class="o">=</span>test.set<span class="p">)</span>
+test.pred
+</pre></div>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Practical-ml maintained by <a href="https://github.com/cris1403">cris1403</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
