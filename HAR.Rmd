@@ -1,0 +1,78 @@
+Weight Lifting Exercises
+===========================
+Human Activity Recognition
+---------------------------
+
+Human Activity Recognition has become a challenging application which involves
+the use of different technologies to automatically collect and classify human activities for
+different application domains, ranging from medical applications, home monitoring and assisted living.
+
+In this task, six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. 
+Our aim is to predict how well an activity was performed by a participant.
+(Read more: http://groupware.les.inf.purio.br/har#weight_lifting_exercises#ixzz3Deo2ygkn)
+
+Let's download the train dataset and the test dataset from the web.
+```{r message=FALSE, warning=FALSE}
+require(caret)
+require(gbm)
+require(pROC)
+require(randomForest)
+
+train = read.csv("C:/Users/Cris/Desktop/MOOC/Practical Machine Learning/Project/data/pml-training.csv", sep=",")
+test = read.csv("C:/Users/Cris/Desktop/MOOC/Practical Machine Learning/Project/data/pml-testing.csv", sep=",")
+
+dim(train)
+dim(test)
+```
+Feature selection
+------------------
+Our train dataset has 19,622 observations and 160 variables. Having examined summary tables, we decide to delete some useless variables with spare distributions (reporting statistics as min, max, kurtosis, skewness). We also use unsupervised filters to remove predictors with high inter-predictor correlations which wouldn't give us additional information about the classe/target variable.
+
+```{r warning=FALSE}
+training = train[,c(8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+testing = test[,c(8:11,37:49,60:68,84:86,102,113:124,140,151:159)] #160 is not classe
+
+correlations  = cor(training[,-53])
+highlyCorrelated = findCorrelation(correlations, cutoff = .85)
+
+train.set = training[,-highlyCorrelated]
+test.set  = testing[,-highlyCorrelated]
+```
+Model
+----------------
+The learning model is random forests, an algorithm that build lots of bushy trees, and then average them to reduce the variance. We also have tried Gradient Boosting Machine, which gave amazing performance on this dataset as well. Boosting builds lots of smaller trees. Unlike random forests, each new tree in boosting tries to patch up the deficiencies of the current ensemble.
+
+Model Training
+-----------------
+Parameter Tuning
+-----------------
+Random forest has only one tuning parameter, 'mtry', which controls the number of features selected for each tree. In order to prevent overfitting, two separate 10-fold cross-validation are used as the resampling scheme to choose the best parameter.
+For each iteration, the strategy is to hold out a cross-validation dataset. Then, for each "mtry" value, the algorithm fits the model on 9-fold dataset and predict the classe variable on the hold-out dataset. 
+```{r warning=FALSE}
+fitControl = trainControl(method='repeatedcv', number=10,
+                          repeats=2, returnResamp='all')
+rfGrid   = expand.grid(.mtry=c(2,5,8))
+rf.tune = train(x=train.set[,1:44], 
+                y=train.set[,45], 
+                method='rf', 
+                trControl=fitControl,
+                tuneGrid=rfGrid)
+rf.tune
+```
+
+```{r comment=NA, fig.width=7}
+plot(rf.tune)
+```
+
+In the model output, there's a row for each mtry values. The "Accuracy" column is the average accuracy of the held-out samples. The optimal model is the one with the highest Accuracy.
+The best model is the one with `mtry=8`. Since $p=44$ here, we could have tried all 44 possible values of `mtry`. Caret records the results and picks the best model which doesn't look very complex. Then we think it won't overfit future data. In other words, it'll generalize well.
+
+Prediction of new samples
+------------------------------
+We apply the optimal model to new cases, to predict if the participant is doing the exercise well or not.
+As we know that $error=1-accuracy$, we already know the cross-validation set error, which is an optimistic estimate of the out of sample dataset (new cases). In this task, the model gives an extremely high accuracy, then we know the model is going to make very good predictions.
+```{r warning=FALSE}
+test.pred = predict(rf.tune, newdata=test.set)
+test.pred
+```
